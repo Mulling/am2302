@@ -1,0 +1,17 @@
+menu "am2302 Configuration"
+	config AM2302_GPIO_PIN
+		int "am2302 GPIO number"
+		range 0 46
+		default 17
+		help
+            GPIO pin number used for the sensor.
+            Ensure that a pull-up resitor is connected.
+
+	config AM2302_RMT_CHANNEL
+		int "RMT channel number"
+		range 0 7
+		default 0
+		help
+			Channel used by the RMT driver.
+
+endmenu
