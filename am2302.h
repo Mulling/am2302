@@ -21,7 +21,8 @@
 
 #define AM2302_GPIO_PIN_SEL ((1ULL << CONFIG_AM2302_GPIO_PIN))
 
-void dht_init();
-esp_err_t dht_read(int16_t *t, int16_t *v);
+// NOTE: am2302_init needs to run on the same core as dht_read
+void am2302_init();
+esp_err_t am2302_read(int16_t *t, int16_t *v);
 
 #endif

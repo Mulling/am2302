@@ -27,16 +27,17 @@ static const char *TAG = "am2302";
 static RingbufHandle_t ringbuf_handle = NULL;
 
 inline __attribute__((always_inline))
-void dht_init(void){
+void am2302_init(void){
     rmt_config_t rmt_rx_config = {
         .rmt_mode      = RMT_MODE_RX,
         .channel       = CONFIG_AM2302_RMT_CHANNEL,
         .gpio_num      = CONFIG_AM2302_GPIO_PIN,
         .clk_div       = 80,
-        .mem_block_num = 1,  // mem_block is 64 * uint32_t
+        .mem_block_num = 1,  // mem_block is 512 * uint32_t
         .rx_config = {
-            .idle_threshold      = 500,
-            .filter_ticks_thresh = 2, // clock source (80MHz) * 2
+            .idle_threshold      = 100, // NOTE: if the signal does not change for `idle_threshold` amount of time, ISR is triggered
+                                        //       (not stated in the official documentation)
+            .filter_ticks_thresh = 160, // NOTE: "Counted in source clock, not divided counter clock." ¯\_(ツ)_/¯
             .filter_en           = 1
         }
     };
@@ -57,7 +58,7 @@ void dht_init(void){
 }
 
 static inline __attribute__((always_inline))
-esp_err_t dht_check_checksum(const uint64_t bits){
+esp_err_t am2302_check_checksum(const uint64_t bits){
     uint8_t sum = 0x00;
 
     for (uint8_t i = 1; i < 5; i++)
@@ -67,7 +68,7 @@ esp_err_t dht_check_checksum(const uint64_t bits){
 }
 
 static inline __attribute__((always_inline))
-esp_err_t dht_parse(
+esp_err_t am2302_parse(
         const rmt_item32_t *restrict items,
         int16_t *t,
         int16_t *h){
@@ -80,14 +81,16 @@ esp_err_t dht_parse(
     // ___|     |__|
     //       ^
     //       |
-    //       the RMT driver should take care of these cases, resulting in a checksum fail
+    //       the RMT driver should take care of these cases, resulting in a checksum fail,
+    //       also the length of the response *should* not match 42, resulting in an error
+    //       prior to parsing
 
     for (ssize_t i = 39; i >= 0; i--){
         bits |= ((abs((uint16_t)items->duration1 - 70) <= 5) ? 1ULL : 0ULL) << i;
         items++;
     }
 
-    esp_err_t checksum_result = dht_check_checksum(bits);
+    esp_err_t checksum_result = am2302_check_checksum(bits);
 
     if (checksum_result != ESP_OK){
         ESP_LOGE(TAG, "checksum fail");
@@ -100,7 +103,7 @@ esp_err_t dht_parse(
     return checksum_result;
 }
 
-esp_err_t dht_read(int16_t *t, int16_t *h){
+esp_err_t am2302_read(int16_t *t, int16_t *h){
     esp_err_t err;
 
     size_t len_items = 0;
@@ -115,7 +118,9 @@ esp_err_t dht_read(int16_t *t, int16_t *h){
 
     rmt_rx_stop(CONFIG_AM2302_RMT_CHANNEL);
 
-    if (len_items < 42){
+    len_items /= 4;
+
+    if (len_items < 42 || len_items > 42){
         err = ESP_ERR_INVALID_SIZE;
         ESP_LOGE(TAG, "could not read sensor data");
         goto end;
@@ -146,7 +151,7 @@ esp_err_t dht_read(int16_t *t, int16_t *h){
     // |
     // ~25us, sensor pulls-down
 
-    err = dht_parse((void *)(items + 1) + sizeof(uint16_t), t, h);
+    err = am2302_parse((void *)(items + 1) + sizeof(uint16_t), t, h);
 
 end:
     vRingbufferReturnItem(ringbuf_handle, (void *)items);
