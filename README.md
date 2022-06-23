@@ -2,13 +2,13 @@
 
 ## Motivation:
 
-Most libraries use an active waiting scheme to read the data from the sensor (sleeping for 1us and checking for the state of the wire), but this approach is completely and utterly wrong and stems from the "Arduino way" of doing things, it might work there buts just causes problems when you have a scheduler.
+Most libraries use an active waiting scheme to read the data from the sensor (sleeping for 1us and checking for the state of the wire), but this approach is completely and utterly wrong and stems from the "Arduino way" of doing things, it might work there but just causes problems when you have a scheduler.
 
 The code on this library makes a lot of assumptions, so please open an issue if you encounter any bugs.
 
 ## Using:
 
-Two functions are exposed to the 'user': `am2302_init()` and `am2302_read()`.
+Two functions are exposed to the user: `am2302_init()` and `am2302_read()`.
 
 ```c
 am2302_init() // Will configure the RMT driver used for reading of the sensor,
@@ -43,4 +43,10 @@ Example:
         // Do something with temp and humd...
     }
 
+```
+
+The RMT channel and pin number are set using `menuconfig`.
+
+```shell
+idf.py menuconfig
 ```
